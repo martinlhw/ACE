@@ -1,6 +1,7 @@
 #Start by importing all necessary libraries and packages 
 import RPi.GPIO as GPIO
 import time
+from game_state_manager import Card, Score, evaluate_hand, Game
 
 #Set the GPIO to BCM Mode
 GPIO.setmode(GPIO.BCM)
@@ -22,6 +23,7 @@ while True:
 
     #Print that fact to the shell, RIP David Bowie
         print("Under Pressure")
+        
 
     #update previous input so we can avoid spamming the Shell with messages, 
     #this section of the script is also a perfect place to add threshold values to active other devices 
