@@ -12,9 +12,10 @@ python capture_data.py --output ../data/
 ```
 
 ### Training
-
+```bash
 python src/run_training.sh
-
+```
 ### Inference
-
+```bash
 python src/run_inference.sh
+```
