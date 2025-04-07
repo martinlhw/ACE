@@ -1,16 +1,20 @@
 # ACE
 Carnegie Mellon ECE Capstone, Spring 2025
 
-Quick Start
+## Quick Start
 
-Data Collection
+### Data Collection
 
 1. Capture card images:
-
+```bash
 cd train
 python capture_data.py --output ../data/
+```
 
-Training
+### Training
 
-1. Train the model
-python run_training.sh
+python src/run_training.sh
+
+### Inference
+
+python src/run_inference.sh
