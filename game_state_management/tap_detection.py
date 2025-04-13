@@ -1,7 +1,7 @@
 #Start by importing all necessary libraries and packages 
 import RPi.GPIO as GPIO
 import time
-from game_state_manager import Card, Score, evaluate_hand, Game
+from game_state_manager import Game
 
 #Set the GPIO to BCM Mode
 GPIO.setmode(GPIO.BCM)
@@ -20,9 +20,7 @@ while True:
 
     #if the last reading was low and this one high the pressure pad is being pressed!
     if ((not prev_input) and input):
-
-    #Print that fact to the shell, RIP David Bowie
-        print("Under Pressure")
+        Game.tap_detection()
         
 
     #update previous input so we can avoid spamming the Shell with messages, 
