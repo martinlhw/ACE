@@ -1,3 +1,22 @@
+import os
+from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
+from elevenlabs import play
+load_dotenv()
+
+def text_to_speech(text):
+    client = ElevenLabs(
+    api_key=os.getenv("ELEVENLABS_API_KEY"),
+    )
+
+    audio = client.text_to_speech.convert(
+        text=text,
+        voice_id="JBFqnCBsd6RMkjVDRZzb",
+        model_id="eleven_multilingual_v2",
+        output_format="mp3_44100_128",
+    )
+    play(audio)
+
 class Card:
     def __init__(self, suit, rank):
         self.suit = suit  # 'S', 'D', 'H', 'C'
@@ -324,11 +343,11 @@ class Game:
             winner = list(self.active_players)[0]
             total_pot = sum(self.game_pot.values())
             self.pots[winner] += total_pot
-            print(f"Player {winner} wins ${total_pot} as all other players folded!")
+            text_to_speech(f"Player {winner} wins ${total_pot} as all other players folded!")
     
     # Tap Detected by 
     def tap_detection(self):
-        
+        return
     
     # This function is written by Claude Sonnet 3.7, only used for interim demo
     # This function will be replaced when card detection works.
@@ -360,29 +379,29 @@ class Game:
     # This function will be replaced when card detection works.
     def display_cards(self, player=None):
         # Display community cards
-        print("\nCommunity Cards:", end=" ")
+        text_to_speech("\nCommunity Cards:", end=" ")
         if not self.community:
-            print("None yet")
+            text_to_speech("None yet")
         else:
             for card in self.community:
-                print(card, end=" ")
-            print()
+                text_to_speech(card, end=" ")
+            text_to_speech()
         
         # Display player's hand if specified
         if player is not None:
-            print(f"\nPlayer {player}'s Hand:", end=" ")
+            text_to_speech(f"\nPlayer {player}'s Hand:", end=" ")
             for card in self.hands[player]:
-                print(card, end=" ")
-            print()
+                text_to_speech(card, end=" ")
+            text_to_speech()
 
     def decide_winner(self):
-        print("\n=== SHOWDOWN ===")
+        text_to_speech("\n=== SHOWDOWN ===")
         
         # Identify who is still playing
         playing = list(self.active_players)
             
         if not playing:
-            print("No players still playing")
+            text_to_speech("No players still playing")
             return
         
         best_score = -1
@@ -390,10 +409,10 @@ class Game:
         player_hands = {}
         
         # Display all community cards
-        print("\nCommunity Cards:", end=" ")
+        text_to_speech("\nCommunity Cards:", end=" ")
         for card in self.community:
-            print(card, end=" ")
-        print("\n")
+            text_to_speech(card, end=" ")
+        text_to_speech("\n")
         
         # Get score for each player's hand
         for player in playing:
@@ -407,10 +426,10 @@ class Game:
             player_hands[player] = hand_result
             
             # Show player's cards and hand
-            print(f"Player {player}'s Hand:", end=" ")
+            text_to_speech(f"Player {player}'s Hand:", end=" ")
             for card in self.hands[player]:
-                print(card, end=" ")
-            print(f" → {hand_result.category}")
+                text_to_speech(card, end=" ")
+            text_to_speech(f" → {hand_result.category}")
             
             if hand_result:
                 cur_score = hand_result.get_score()
@@ -424,45 +443,45 @@ class Game:
         # Calculate total pot
         total_pot = sum(self.game_pot.values())
         
-        print("\n--- Result ---")
+        text_to_speech("\n--- Result ---")
         
         # Adjust pot accordingly
         if len(best_player) == 1:
             # Add to winner's pot
             winner = best_player[0]
             self.pots[winner] += total_pot
-            print(f"Player {winner} wins ${total_pot} with {player_hands[winner].category}!")
+            text_to_speech(f"Player {winner} wins ${total_pot} with {player_hands[winner].category}!")
         else:
             # There was a tie: distribute to all winners
             split_amount = total_pot // len(best_player)
             remainder = total_pot % len(best_player)
             
             winners_str = ", ".join([str(p) for p in best_player])
-            print(f"Tie between players {winners_str}!")
-            print(f"Each wins ${split_amount} with {player_hands[best_player[0]].category}!")
+            text_to_speech(f"Tie between players {winners_str}!")
+            text_to_speech(f"Each wins ${split_amount} with {player_hands[best_player[0]].category}!")
             
             for winner in best_player:
                 self.pots[winner] += split_amount
             
             if remainder > 0:
-                print(f"Remainder ${remainder} goes to the house.")
+                text_to_speech(f"Remainder ${remainder} goes to the house.")
                 
         # Show updated pot sizes
-        print("\nUpdated pot sizes:")
+        text_to_speech("\nUpdated pot sizes:")
         for player in range(self.n):
             if player in self.active_players:
                 status = "active"
             else:
                 status = "folded"
-            print(f"Player {player}: ${self.pots[player]} ({status})")
+            text_to_speech(f"Player {player}: ${self.pots[player]} ({status})")
 
     def wait_for_bet(self, player):
         # Get actual user input from terminal
-        print(f"\nPlayer {player}'s turn")
-        print(f"Current pot: {sum(self.game_pot.values())}")
-        print(f"Current bet to match: {self.current_bet}")
-        print(f"Your current bet: {self.game_pot[player]}")
-        print(f"Your remaining money: {self.pots[player]}")
+        text_to_speech(f"\nPlayer {player}'s turn")
+        text_to_speech(f"Current pot: {sum(self.game_pot.values())}")
+        text_to_speech(f"Current bet to match: {self.current_bet}")
+        text_to_speech(f"Your current bet: {self.game_pot[player]}")
+        text_to_speech(f"Your remaining money: {self.pots[player]}")
         
         # Calculate how much the player needs to call
         amount_to_call = self.current_bet - self.game_pot[player]
@@ -485,9 +504,9 @@ class Game:
             options.append("raise [amount]")
         
         # Display options to the player
-        print("\nAvailable actions:")
+        text_to_speech("\nAvailable actions:")
         for i, option in enumerate(options):
-            print(f"{i+1}. {option}")
+            text_to_speech(f"{i+1}. {option}")
             
         # Get player's choice
         while True:
@@ -502,7 +521,7 @@ class Game:
                     if action.startswith("call "):
                         action = "call"
                 else:
-                    print("Invalid option number. Try again.")
+                    text_to_speech("Invalid option number. Try again.")
                     continue
             
             # Process text input
@@ -512,13 +531,13 @@ class Game:
             elif action == "call":
                 # Check if player has enough money
                 if self.pots[player] < amount_to_call:
-                    print(f"You don't have enough money to call. You need {amount_to_call} but only have {self.pots[player]}.")
+                    text_to_speech(f"You don't have enough money to call. You need {amount_to_call} but only have {self.pots[player]}.")
                     continue
                 return "call"
                 
             elif action == "check":
                 if amount_to_call > 0:
-                    print(f"You can't check. You need to call {amount_to_call} or fold.")
+                    text_to_speech(f"You can't check. You need to call {amount_to_call} or fold.")
                     continue
                 return "check"
                 
@@ -532,22 +551,22 @@ class Game:
                         
                     # Validate the raise amount
                     if raise_amount <= 0:
-                        print("Raise amount must be positive.")
+                        text_to_speech("Raise amount must be positive.")
                         continue
                         
                     total_needed = amount_to_call + raise_amount
                     
                     if total_needed > self.pots[player]:
-                        print(f"You don't have enough money. Maximum raise: {self.pots[player] - amount_to_call}")
+                        text_to_speech(f"You don't have enough money. Maximum raise: {self.pots[player] - amount_to_call}")
                         continue
                         
                     return f"raise:{raise_amount}"
                 except ValueError:
-                    print("Please enter a valid number for the raise amount.")
+                    text_to_speech("Please enter a valid number for the raise amount.")
                     continue
             
             else:
-                print("Invalid action. Please try again.")
+                text_to_speech("Invalid action. Please try again.")
                 continue
 
     def take_turns(self):
@@ -569,11 +588,11 @@ class Game:
                 continue
             
             # Show divider for readability
-            print("\n" + "-" * 50)    
+            text_to_speech("\n" + "-" * 50)    
                 
             # Display current game state
-            print(f"\nCurrent pot: {sum(self.game_pot.values())}")
-            print(f"Current bet to match: {self.current_bet}")
+            text_to_speech(f"\nCurrent pot: {sum(self.game_pot.values())}")
+            text_to_speech(f"Current bet to match: {self.current_bet}")
             
             # Show the player their cards
             self.display_cards(cur_player)
@@ -583,17 +602,17 @@ class Game:
             
             if action == "fold": # sensing card throw with CV
                 self.active_players.remove(cur_player)
-                print(f"Player {cur_player} folds")
+                text_to_speech(f"Player {cur_player} folds")
                 
             elif action == "call": # sensing weight scale
                 amount_to_call = self.current_bet - self.game_pot[cur_player]
                 self.game_pot[cur_player] += amount_to_call
                 self.pots[cur_player] -= amount_to_call
-                print(f"Player {cur_player} calls {amount_to_call}")
+                text_to_speech(f"Player {cur_player} calls {amount_to_call}")
                 players_acted.add(cur_player)
                 
             elif action == "check": # sensing from from resistive sensor
-                print(f"Player {cur_player} checks")
+                text_to_speech(f"Player {cur_player} checks")
                 players_acted.add(cur_player)
                 
             elif action.startswith("raise:"): # sensing weight scale
@@ -605,7 +624,7 @@ class Game:
                 self.pots[cur_player] -= total_amount
                 self.current_bet += raise_amount
                 
-                print(f"Player {cur_player} raises by {raise_amount} to {self.current_bet}")
+                text_to_speech(f"Player {cur_player} raises by {raise_amount} to {self.current_bet}")
                 
                 # When a player raises, we need to give others a chance to respond
                 players_acted = {cur_player}
@@ -628,25 +647,25 @@ class Game:
                 # We've gone full circle back to the last raiser
                 round_complete = True
         
-        print("\nBetting round complete")
+        text_to_speech("\nBetting round complete")
     
     def preflop_phase(self):
         input("\nPress Enter to start game...")
         
-        print("\n=== PREFLOP PHASE ===")
+        text_to_speech("\n=== PREFLOP PHASE ===")
         # Players take turns to bet
         self.take_turns()
         return 0
 
     def flop_phase(self):
-        print("\n=== FLOP PHASE ===")
+        text_to_speech("\n=== FLOP PHASE ===")
         
         # In a real implementation, receive input from camera to detect cards
         # For our terminal implementation, we'll use the pre-dealt community cards
         # Add the first three community cards (the flop)
         self.community = self.community_deck[:3]
         
-        print("Dealing the flop...")
+        text_to_speech("Dealing the flop...")
         self.display_cards()
         
         # Reset current bet for new round
@@ -656,12 +675,12 @@ class Game:
         self.take_turns()
 
     def turn_phase(self):
-        print("\n=== TURN PHASE ===")
+        text_to_speech("\n=== TURN PHASE ===")
         
         # Add the fourth community card (the turn)
         self.community.append(self.community_deck[3])
         
-        print("Dealing the turn...")
+        text_to_speech("Dealing the turn...")
         self.display_cards()
         
         # Reset current bet for new round
@@ -671,12 +690,12 @@ class Game:
         self.take_turns()
 
     def river_phase(self):
-        print("\n=== RIVER PHASE ===")
+        text_to_speech("\n=== RIVER PHASE ===")
         
         # Add the fifth community card (the river)
         self.community.append(self.community_deck[4])
         
-        print("Dealing the river...")
+        text_to_speech("Dealing the river...")
         self.display_cards()
         
         # Reset current bet for new round
@@ -695,26 +714,26 @@ class Game:
 def main():
     # Get user input from terminal
     try:
-        print("Welcome to the Poker Hand Evaluator!")
+        text_to_speech("Welcome to the Poker Hand Evaluator!")
         n = int(input("Enter the number of players (2-10): "))
         
         # Validate number of players
         if n < 2 or n > 10:
-            print("Invalid number of players. Setting to default 4 players.")
+            text_to_speech("Invalid number of players. Setting to default 4 players.")
             n = 4
             
         blind_pot_size = int(input("Enter the small blind amount: "))
         
         # Validate small blind
         if blind_pot_size <= 0:
-            print("Invalid small blind amount. Setting to default 5.")
+            text_to_speech("Invalid small blind amount. Setting to default 5.")
             blind_pot_size = 5
             
         initial_pot_size = int(input("Enter the initial pot size for each player: "))
         
         # Validate initial pot
         if initial_pot_size <= 0:
-            print("Invalid initial pot size. Setting to default 1000.")
+            text_to_speech("Invalid initial pot size. Setting to default 1000.")
             initial_pot_size = 1000
         
         # Create and start the game with user input values
@@ -723,8 +742,8 @@ def main():
             game.start_game()
         
     except ValueError:
-        print("Invalid input. Please enter numeric values.")
-        print("Starting with default values: 4 players, small blind 5, initial pot 1000")
+        text_to_speech("Invalid input. Please enter numeric values.")
+        text_to_speech("Starting with default values: 4 players, small blind 5, initial pot 1000")
         game = Game(4, 5, 1000)
         while True:
             game.start_game()
