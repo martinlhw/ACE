@@ -17,21 +17,33 @@ void setup() {
   // Default position
   servo_body.write(90);
   servo_disp.write(180);
-  motor.setSpeed(200);
-  motor.run(RELEASE);
+
+  // Defaut speed
+  motor.setSpeed(255);
+  motor.run(RELEASE); // RELEASE: stop, FORWARD: rotate forward
 
   for (int i = 0; i < 52; i++) {
-    // Move Serovs to default position.
-    servo_body.write(i*3);
-    delay(500);
-    servo_disp.write(40);
-    delay(3000);
+    servo_disp.write(0);
+    delay(1000);
+    motor.run(FORWARD);
+    delay(1000);
+    motor.run(RELEASE);
     servo_disp.write(180);
     delay(3000);
   }
-}
 
+}
 
 void loop() {
   
+}
+
+// Test function
+void motorMove(int time) {
+  for (int i = 0; i < time ; i++) {
+    motor.run(FORWARD);
+    delay(90);
+    motor.run(RELEASE);
+    delay(10);
+  }
 }

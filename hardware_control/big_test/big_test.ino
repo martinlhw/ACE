@@ -1,6 +1,13 @@
 #include <AFMotor.h>
 #include <Servo.h>
 
+
+
+// 0: Only do community card test, 1: do player throws 
+int big_test = 0;
+
+
+
 // Servo for machine spin
 Servo servo_body;
 
@@ -9,7 +16,6 @@ Servo servo_disp;
 
 // DC motor for dispenser
 AF_DCMotor motor(1);
-
 
 int motorSpeed = 0; // 0 = stop, 255 = max
 int close_speed = 120;
@@ -29,12 +35,6 @@ int player_4_angle_1 = 40;
 int player_4_angle_2 = 30;
 
 void setup() {
-  
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // Wait until serial port is available
-  }
-
   servo_body.attach(10); // pin 10 = machine body control
   servo_disp.attach(9); // pin 9 = dispenser control
 
@@ -181,33 +181,6 @@ void setup() {
   }
 }
 
-String inputString = "";
-bool commandReady = false;
-
 void loop() {
-  // // Step 1: Read serial input character by character
-  // while (Serial.available()) {
-  //   char c = Serial.read();
-    
-  //   if (c == '\n') {
-  //     commandReady = true;
-  //     break;
-  //   } else {
-  //     inputString += c;
-  //   }
-  // }
-
-  // // Step 2: Process complete command
-  // if (commandReady) {
-  //   if (inputString.startsWith("B")) {
-  //     int angle = inputString.substring(1).toInt();
-  //     if (angle >= 0 && angle <= 180) {
-  //       servo_body.write(angle); // Move body servo to requested angle
-  //     }
-  //   }
-
-  //   // Reset after processing
-  //   inputString = "";
-  //   commandReady = false;
-  // }
+  
 }
