@@ -182,6 +182,7 @@ void preflop() {
       give_card(player_4_angle_1, far_speed);
       delay(500);
       give_card(player_4_angle_2, far_speed);
+      serial.print("ack");
     }
   }
 }
@@ -194,10 +195,11 @@ void flop() {
     // Turn body angle
     servo_body.write(70 + i * 10);
     dispense(community_speed);
-  
     // Delay between dispenses
     delay(1000);
   }
+  serial.print("ack");
+
 }
 
 void turn() {
@@ -205,6 +207,7 @@ void turn() {
   delay(500);
   servo_body.write(100);
   dispense(community_speed);
+  serial.print("ack");
 }
 
 void river() {
@@ -212,4 +215,5 @@ void river() {
   delay(500);
   servo_body.write(110);
   dispense(community_speed);
+  serial.print("ack");
 }
