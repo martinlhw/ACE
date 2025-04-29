@@ -19,17 +19,23 @@ void setup() {
   servo_disp.write(180);
 
   // Defaut speed
-  motor.setSpeed(255);
+  motor.setSpeed(80);
   motor.run(RELEASE); // RELEASE: stop, FORWARD: rotate forward
+  servo_body.write(130);
 
-  for (int i = 0; i < 52; i++) {
+  for (int i = 0; i < 5; i++) {
+    // Servo Roll
     servo_disp.write(0);
     delay(1000);
-    motor.run(FORWARD);
+
+    motor.setSpeed(100);
+    motor.run(BACKWARD);
     delay(1000);
+
+    // Back roll
     motor.run(RELEASE);
     servo_disp.write(180);
-    delay(3000);
+    delay(2500);
   }
 
 }
