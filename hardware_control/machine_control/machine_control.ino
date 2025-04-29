@@ -71,16 +71,16 @@ void loop() {
       char commandType = input_string.charAt(0);
       int commandValue = input_string.substring(1).toInt();
 
-      // Game Phase
+      // Game Phase - (0: preflop, 1: flop, 2: turn, 3: river)
       if (commandType == 'P') {
         if (commandValue == 0) {
           preflop();
         } else if (commandValue == 1) {
-          // Flop
+          flop();
         } else if (commandValue == 2) {
-          // Turn
-        } else if (commandValue == 2) {
-          // River
+          turn();
+        } else if (commandValue == 3) {
+          river();
         }
       }
 
@@ -120,7 +120,7 @@ void loop() {
 
       // Redo (Re-dispense)
       else if (commandType == 'R') {
-        
+        dispense(last_dispense_speed);
       }
     }
 
@@ -130,19 +130,37 @@ void loop() {
   }
 }
 
-void community() {
-  // Community Card
-  for (int i = 0; i < 5; i++) {
-    // Turn body angle
-    servo_body.write(70 + i * 10);
-    dispense(community_speed);
-  
-    // Delay between dispenses
-    delay(1000);
-  }
+// General dispense command
+void dispense(int dispense_speed) {
+  // Save dispense value
+  last_dispense_speed = dispense_speed;
+
+  // Push card
+  servo_disp.write(30);
+  delay(1000);
+
+  // Shoot card
+  motor.setSpeed(dispense_speed);
+  motor.run(FORWARD);
+  delay(1000);
+  motor.run(RELEASE);
+
+  // Return servo for next card
+  servo_disp.write(180);
 }
 
-// PreFlop
+// Give card to specific player
+void give_card(int playerangle, int dispense_speed) {
+  servo_body.write(playerangle);
+  dispense(dispense_speed);
+}
+
+void burn() {
+  servo_body.write(180);
+  dispense(80);
+  servo_body.write(90);
+}
+
 void preflop() {
   for (int i = 0; i < 4; i++) {
     if (i == 0) {
@@ -168,24 +186,30 @@ void preflop() {
   }
 }
 
-// Give card to specific player
-void give_card(int playerangle, int dispense_speed) {
-  servo_body.write(playerangle);
-  dispense(dispense_speed);
+void flop() {
+  burn();
+  delay(500);
+  // Community Card
+  for (int i = 0; i < 3; i++) {
+    // Turn body angle
+    servo_body.write(70 + i * 10);
+    dispense(community_speed);
+  
+    // Delay between dispenses
+    delay(1000);
+  }
 }
 
-// General dispense command
-void dispense(int dispense_speed) {
-  // Push card
-  servo_disp.write(30);
-  delay(1000);
+void turn() {
+  burn();
+  delay(500);
+  servo_body.write(100);
+  dispense(community_speed);
+}
 
-  // Shoot card
-  motor.setSpeed(dispense_speed);
-  motor.run(FORWARD);
-  delay(1000);
-  motor.run(RELEASE);
-
-  // Return servo for next card
-  servo_disp.write(180);
+void river() {
+  burn();
+  delay(500);
+  servo_body.write(110);
+  dispense(community_speed);
 }
