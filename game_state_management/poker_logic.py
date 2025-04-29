@@ -338,18 +338,26 @@ class Game:
         if self.phase == "preflop":
             # Handle preflop actions
             self.dispenser.send_command("P0\n")
+            self.dispenser._read_serial_thread()
+            
+            
             
         elif self.phase == "flop":
             # Handle flop actions
             self.dispenser.send_command("P1\n")
+            self.dispenser._read_serial_thread()
             
         elif self.phase == "turn":
             # Handle turn actions
             self.dispenser.send_command("P2\n")
+            self.dispenser._read_serial_thread()
+            
             
         elif self.phase == "river":
             # Handle river actions
             self.dispenser.send_command("P2\n")
+            self.dispenser._read_serial_thread()
+            
         elif self.phase == "showdown":
             # Handle showdown actions
             pass

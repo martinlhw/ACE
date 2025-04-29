@@ -83,6 +83,11 @@ class PokerSignalReceiver:
         if not message:
             return
         
+        if self.port == '/dev/ttyACM1':
+            # Skip messages from the second Arduino
+            if message.startswith("ack"):
+                return
+        
         # Process different message types
         if message.startswith("WEIGHT:"):
             try:
