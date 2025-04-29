@@ -306,7 +306,7 @@ class Game:
         # Hands of each player (7 cards = 2 hole cards + 5 community)
         self.hands = {i: [] for i in range(self.n)}
         
-        self.dispenser = PokerSignalReceiver(port='/dev/ttyACM2', baud_rate=9600)
+        self.dispenser = PokerSignalReceiver(port='/dev/ttyACM0', baud_rate=9600)
         
         # Community cards
         self.community = []
