@@ -1,4 +1,3 @@
-# Save this as poker_logic.py
 class Card:
     def __init__(self, suit, rank):
         self.suit = suit  # 'S', 'D', 'H', 'C'
@@ -276,8 +275,14 @@ class Game:
         # Number of total players
         self.n = n 
         
+        # Set current active player (initially after big blind)
+        self.current_player = (self.x + 2) % self.n
+        
         self.game_pot = {i: 0 for i in range(self.n)}
-        self.active_players = set(range(self.n)) 
+        self.active_players = set(range(self.n))
+        
+        # Game phase (preflop, flop, turn, river, showdown)
+        self.phase = "setup"
     
     def start_game(self):
         # Table for each player's current bet in this round
@@ -289,6 +294,12 @@ class Game:
         
         # Track active players (not folded)
         self.active_players = set(range(self.n))
+        
+        # Current active player (after the big blind)
+        self.current_player = (self.x + 2) % self.n
+        
+        # Track players who have acted in this round
+        self.players_acted = set()
         
         # Hands of each player (7 cards = 2 hole cards + 5 community)
         self.hands = {i: [] for i in range(self.n)}
@@ -308,6 +319,9 @@ class Game:
         
         self.current_bet = self.bb
         
+        # Set the initial phase
+        self.phase = "preflop"
+    
     def deal_hole_cards(self):
         # This function will be called by the Pygame implementation
         # Create a deck of cards
@@ -329,6 +343,47 @@ class Game:
             
         # Set aside 5 cards for the community cards
         self.community_deck = [deck.pop() for _ in range(5)]
+    
+    def move_to_next_player(self):
+        """Move to the next active player."""
+        # Find the next active player
+        initial_player = self.current_player
+        while True:
+            self.current_player = (self.current_player + 1) % self.n
+            if self.current_player in self.active_players and self.current_player not in self.players_acted:
+                break
+            
+            # Prevent infinite loop if no eligible players
+            if self.current_player == initial_player:
+                return True  # Round complete
+        
+        return False  # Round continues
+    
+    def advance_phase(self):
+        """Advance to the next phase of the game."""
+        if self.phase == "preflop":
+            self.phase = "flop"
+            # Deal the flop
+            self.community = self.community_deck[:3]
+        elif self.phase == "flop":
+            self.phase = "turn"
+            # Deal the turn
+            self.community.append(self.community_deck[3])
+        elif self.phase == "turn":
+            self.phase = "river"
+            # Deal the river
+            self.community.append(self.community_deck[4])
+        elif self.phase == "river":
+            self.phase = "showdown"
+            # Determine winner
+            self.decide_winner()
+            # Reset for the next hand
+            self.phase = "setup"
+        
+        # Reset betting for the new phase
+        self.current_bet = 0
+        self.players_acted = set()
+        self.current_player = self.x  # Start with small blind player
     
     def decide_winner(self):
         # Identify who is still playing
