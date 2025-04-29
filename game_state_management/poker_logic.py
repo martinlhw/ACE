@@ -1,3 +1,5 @@
+from poker_signal_receiver import PokerSignalReceiver
+
 class Card:
     def __init__(self, suit, rank):
         self.suit = suit  # 'S', 'D', 'H', 'C'
@@ -304,6 +306,8 @@ class Game:
         # Hands of each player (7 cards = 2 hole cards + 5 community)
         self.hands = {i: [] for i in range(self.n)}
         
+        self.dispenser = PokerSignalReceiver(port='/dev/ttyACM1', baud_rate=9600)
+        
         # Community cards
         self.community = []
         
@@ -321,6 +325,34 @@ class Game:
         
         # Set the initial phase
         self.phase = "preflop"
+        self.serve_phase()
+        self.phase = "flop"
+        self.serve_phase()
+        self.phase = "turn"
+        self.serve_phase()
+        self.phase = "river"
+        self.serve_phase()
+        
+    def serve_phase(self):
+        """Serve the current phase of the game."""
+        if self.phase == "preflop":
+            # Handle preflop actions
+            self.dispenser.send_command("P0\n")
+            
+        elif self.phase == "flop":
+            # Handle flop actions
+            self.dispenser.send_command("P1\n")
+            
+        elif self.phase == "turn":
+            # Handle turn actions
+            self.dispenser.send_command("P2\n")
+            
+        elif self.phase == "river":
+            # Handle river actions
+            self.dispenser.send_command("P2\n")
+        elif self.phase == "showdown":
+            # Handle showdown actions
+            pass
     
     def deal_hole_cards(self):
         # This function will be called by the Pygame implementation
