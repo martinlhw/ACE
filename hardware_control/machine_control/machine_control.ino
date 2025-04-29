@@ -39,7 +39,7 @@ void setup() {
   // Connecting with RPI
   Serial.begin(9600);
   while (!Serial) {
-    ; // Wait until serial port is available
+    ; // Wait until Serial port is available
   }
 
   servo_body.attach(10); // pin 10 = machine body control
@@ -182,7 +182,7 @@ void preflop() {
       give_card(player_4_angle_1, far_speed);
       delay(500);
       give_card(player_4_angle_2, far_speed);
-      serial.print("ack");
+      Serial.print("ack");
     }
   }
 }
@@ -198,7 +198,7 @@ void flop() {
     // Delay between dispenses
     delay(1000);
   }
-  serial.print("ack");
+  Serial.print("ack");
 
 }
 
@@ -207,7 +207,7 @@ void turn() {
   delay(500);
   servo_body.write(100);
   dispense(community_speed);
-  serial.print("ack");
+  Serial.print("ack");
 }
 
 void river() {
@@ -215,5 +215,5 @@ void river() {
   delay(500);
   servo_body.write(110);
   dispense(community_speed);
-  serial.print("ack");
+  Serial.print("ack");
 }
