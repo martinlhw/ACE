@@ -19,7 +19,7 @@ class ArduinoPokerGame(PokerGameGUI):
         self.signal_receiver = signal_receiver
         
         # Map sensors to player positions (customize based on your setup)
-        self.sensor_to_player = {1: 0, 2: 1, 3: 2, 4: 3}
+        self.sensor_to_player = {1: 1, 2: 2, 3: 3, 4: 4}
         
         # Chip value conversion (10g = 1 chip)
         self.chip_weight = 10.0
@@ -102,7 +102,7 @@ class ArduinoPokerGame(PokerGameGUI):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Poker Game with Arduino Integration')
-    parser.add_argument('--port', type=str, default='/dev/ttyACM0', help='Serial port for Arduino connection')
+    parser.add_argument('--port', type=str, default='/dev/ttyACM1', help='Serial port for Arduino connection')
     parser.add_argument('--baud', type=int, default=9600, help='Baud rate for serial connection')
     parser.add_argument('--players', type=int, default=4, help='Number of players')
     args = parser.parse_args()

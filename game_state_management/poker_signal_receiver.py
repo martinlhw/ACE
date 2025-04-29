@@ -78,7 +78,7 @@ class PokerSignalReceiver:
     def _process_message(self, message):
         """Process a message from the Arduino."""
         message = message.strip()
-        
+        # print(message)
         # Skip empty messages
         if not message:
             return
@@ -105,6 +105,7 @@ class PokerSignalReceiver:
         
         elif message.startswith("EVENT:"):
             try:
+                print(message)
                 parts = message.split(":", 2)
                 if len(parts) == 3:
                     event_type = parts[1]

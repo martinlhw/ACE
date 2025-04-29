@@ -362,7 +362,7 @@ class PokerGameGUI:
                 pygame.draw.circle(self.screen, RED, (int(x), int(y)), 50)
             
             # Draw player label
-            player_text = self.font_small.render(f"Player {i}", True, WHITE)
+            player_text = self.font_small.render(f"Player {i+1}", True, WHITE)
             self.screen.blit(player_text, (x - player_text.get_width() // 2, y - 5))
             
             # Draw player's pot
