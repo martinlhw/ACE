@@ -220,6 +220,14 @@ def main():
                         active_input = None
                     elif event.unicode.isdigit():
                         pot_text += event.unicode
+                        
+            # Handle 
+            # Set a timeout of 5 seconds
+            conn.settimeout(5)
+            try:
+                data = conn.recv(1024)
+            except socket.timeout:
+                print("No data received within timeout period")
         
         # Clear the screen
         settings_screen.fill((50, 50, 50))
