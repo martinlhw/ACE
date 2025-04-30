@@ -4,6 +4,8 @@ import pygame
 from pygame.locals import *
 import time
 import argparse
+import socket
+
 
 # Import local modules
 from poker_logic import Game, Card
@@ -106,6 +108,23 @@ def main():
     parser.add_argument('--baud', type=int, default=9600, help='Baud rate for serial connection')
     parser.add_argument('--players', type=int, default=4, help='Number of players')
     args = parser.parse_args()
+    # Create a socket object
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    # Define host and port
+    host = 'localhost'
+    port = 12345
+    
+    # Bind the socket
+    server_socket.bind((host, port))
+    
+    # Listen for connections
+    server_socket.listen(1)
+    print(f"Server listening on {host}:{port}")
+    
+    # Accept connections
+    conn, addr = server_socket.accept()
+    print(f"Connected to {addr}")
     
     # Initialize pygame
     pygame.init()
@@ -250,9 +269,12 @@ def main():
     try:
         poker_game.run()
     except KeyboardInterrupt:
+        conn.close()
         signal_receiver.disconnect()
         pygame.quit()
         sys.exit()
+    conn.close()
+        
 
 if __name__ == "__main__":
     main()
