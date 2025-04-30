@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import mobilenet_v3_large, MobileNet_V3_Large_Weights
 
 class PokerCardClassifier(nn.Module):
     def __init__(self, num_classes=52):
@@ -11,18 +11,17 @@ class PokerCardClassifier(nn.Module):
             num_classes: 52
         """
         super(PokerCardClassifier, self).__init__()
-        self.backbone = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+        self.backbone = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
         
         # Replace the final fully connected layer
-        in_features = self.backbone.fc.in_features
-        self.backbone.fc = nn.Identity()
+        last_channel = self.backbone.classifier[0].in_features
+        self.backbone.classifier = nn.Identity()
         
         self.pred_head = nn.Sequential(
-            nn.Linear(in_features, 512),
+            nn.Linear(last_channel, 256),
             nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, num_classes)
+            nn.Dropout(0.2),  # Add dropout for regularization
+            nn.Linear(256, num_classes)
         )
     
     def forward(self, x):
