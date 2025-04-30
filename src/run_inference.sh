@@ -50,7 +50,6 @@ echo ""
 python3 inference/realtime_detection.py \
     --model "$MODEL_PATH" \
     --classes "$CLASS_FILE" \
-    --camera "$CAMERA_ID" \
     --device "$DEVICE" \
     --threshold $THRESHOLD \
     --display_scale $DISPLAY_SCALE

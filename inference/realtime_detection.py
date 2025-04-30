@@ -1,267 +1,217 @@
 import cv2
 import torch
-import numpy as np
 import time
 import argparse
 import os
+os.environ["QT_QPA_PLATFORM"] = "xcb"
+os.environ["GDK_BACKEND"] = "x11"
+os.environ["OPENCV_VIDEOIO_PRIORITY_BACKEND"] = "gstreamer"
+
 from PIL import Image
 import torchvision.transforms as transforms
 import sys
+from picamera2 import Picamera2
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from train.model import PokerCardClassifier, create_optimizer
+from train.model import PokerCardClassifier
 
-def load_model(checkpoint_path, num_classes=52, device='cpu'):
-    """
-    Load a saved model from checkpoint.
-    
-    Args:
-        checkpoint_path: Path to the saved model checkpoint
-        num_classes: Number of card classes
-        device: Device to load the model on
-        
-    Returns:
-        Loaded model
-    """
+# ─────────────────────────── model loader ──────────────────────────
+
+def load_model(checkpoint_path: str, num_classes: int, device: str = "cpu"):
+    """Load PokerCardClassifier weights from checkpoint"""
     model = PokerCardClassifier(num_classes)
-    
-    # Load checkpoint
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    
-    # Handle different checkpoint formats
-    if 'model_state_dict' in checkpoint:
-        model.load_state_dict(checkpoint['model_state_dict'])
-    else:
-        model.load_state_dict(checkpoint)
-        
-    model = model.to(device)
-    return model
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    state = ckpt.get("model_state_dict", ckpt)
+    model.load_state_dict(state)
+    return model.to(device)
 
+
+# ──────────────────────────── detector class ──────────────────────
 class RealtimeCardDetector:
-    """
-    Real-time poker card detector using a pre-trained model.
-    Processes video frames from a camera and classifies cards.
-    """
-    def __init__(self, model_path, class_names, device='cpu', 
-                 input_size=(224, 224), confidence_threshold=0.7, fps_avg_frames=10):
-        """
-        Initialize the detector.
-        
-        Args:
-            model_path: Path to the trained model
-            class_names: List of class names
-            device: Device to run inference on
-            input_size: Input size for the model
-            confidence_threshold: Minimum confidence to display predictions
-            fps_avg_frames: Number of frames to average FPS calculation
-        """
+    """Realtime poker card detector using Picamera2 and OpenCV GUI."""
+
+    def __init__(
+        self,
+        model_path: str,
+        class_names: list[str],
+        device: str = "cpu",
+        input_size: tuple[int, int] = (224, 224),
+        conf_threshold: float = 0.7,
+        fps_avg_frames: int = 10,
+    ) -> None:
         self.device = device
         self.class_names = class_names
-        self.input_size = input_size
-        self.confidence_threshold = confidence_threshold
-        
-        # Load model
-        self.model = self._load_model(model_path)
+        self.conf_threshold = conf_threshold * 100
+
+        # Load and prepare model
+        self.model = load_model(model_path, len(class_names), device)
         self.model.eval()
-        
-        # Create transform for preprocessing
+
+        # Preprocessing pipeline
         self.transform = transforms.Compose([
             transforms.Resize(input_size),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
-        
-        # FPS calculation
-        self.fps_avg_frames = fps_avg_frames
-        self.frame_times = []
-        
-        print(f"Model loaded successfully. Ready to detect {len(class_names)} card types.")
-        
-    def _load_model(self, model_path):
-        """Load the model from checkpoint."""
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-                
-        # Load model
-        return load_model(
-            checkpoint_path=model_path,
-            num_classes=len(self.class_names),
-            device=self.device
+
+        # FPS tracking
+        self.fps_times: list[float] = []
+        self.fps_avg = fps_avg_frames
+
+        # Finalisation state
+        self.finalised = False
+        self.final_class: str | None = None
+        self.candidate_class: str | None = None
+        self.t70_start: float | None = None
+        self.t90_start: float | None = None
+
+        # Initialize camera
+        self.picam = Picamera2()
+        self.picam.configure(
+            self.picam.create_preview_configuration(
+                main={"size": (640, 480), "format": "BGR888"}
+            )
         )
-    
-    def preprocess_frame(self, frame):
-        """
-        Preprocess a video frame for the model.
-        
-        Args:
-            frame: Input BGR frame from OpenCV
-            
-        Returns:
-            Preprocessed tensor ready for model input
-        """
-        # convert BGR to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # convert to PIL Image
-        pil_image = Image.fromarray(rgb_frame)
-        
-        # Apply transformations
-        tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
-        
-        return tensor
-    
-    def predict(self, frame):
-        """
-        Predict the card class from a frame.
-        
-        Args:
-            frame: Input BGR frame from OpenCV
-            
-        Returns:
-            class_name: Predicted class name
-            confidence: Confidence score (0-100%)
-        """
-        # Preprocess the frame
-        tensor = self.preprocess_frame(frame)
-        
-        # Run inference
-        with torch.no_grad():
-            outputs = self.model(tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            confidence, prediction = torch.max(probabilities, 1)
-        
-        class_name = self.class_names[prediction.item()]
-        confidence_value = confidence.item() * 100
-        
-        return class_name, confidence_value
-    
-    def update_fps(self):
-        """Update FPS calculation."""
-        current_time = time.time()
-        self.frame_times.append(current_time)
-        
-        # Keep only the last n frames for averaging
-        if len(self.frame_times) > self.fps_avg_frames:
-            self.frame_times.pop(0)
-        
-        # Calculate FPS
-        if len(self.frame_times) > 1:
-            time_diff = self.frame_times[-1] - self.frame_times[0]
-            if time_diff > 0:
-                return (len(self.frame_times) - 1) / time_diff
-        return 0
-    
-    def run(self, camera_id=0, display_scale=1.0):
-        """
-        Run the detector on live video feed.
-        
-        Args:
-            camera_id: Camera ID to use
-            display_scale: Scale factor for display window
-        """
-        # Initialize video capture
-        cap = cv2.VideoCapture(camera_id)
-        
-        # Check if camera opened successfully
-        if not cap.isOpened():
-            print(f"Error: Could not open camera {camera_id}")
+        self.picam.start()
+        print("Detector ready – press q in the window to quit.")
+
+    def _preprocess(self, frame):
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil = Image.fromarray(rgb)
+        return self.transform(pil).unsqueeze(0).to(self.device)
+
+    @torch.no_grad()
+    def _predict(self, frame):
+        tensor = self._preprocess(frame)
+        outputs = self.model(tensor)
+        probs = torch.nn.functional.softmax(outputs, dim=1)
+        conf, idx = torch.max(probs, 1)
+        return self.class_names[idx.item()], conf.item() * 100
+
+    def _update_fps(self):
+        now = time.time()
+        self.fps_times.append(now)
+        if len(self.fps_times) > self.fps_avg:
+            self.fps_times.pop(0)
+        if len(self.fps_times) > 1:
+            dt = self.fps_times[-1] - self.fps_times[0]
+            return (len(self.fps_times) - 1) / dt if dt > 0 else 0.0
+        return 0.0
+
+    def _track_stability(self, cls: str, conf: float):
+        now = time.time()
+        print(cls, self.final_class)
+        # Reset finalization if a different card is detected with good confidence
+        if self.finalised and cls != self.final_class and conf >= self.conf_threshold:
+            print(f"New card detected: {cls}, confidence: {conf:.1f}%")
+            self.finalised = False
+            self.final_class = None
+            self.candidate_class = cls
+            self.t70_start = now if conf >= 70 else None
+            self.t90_start = now if conf >= 90 else None
             return
+            
+        # If not finalized yet, track stability as before
+        if cls != self.candidate_class:
+            self.candidate_class = cls
+            self.t70_start = now if conf >= 70 else None
+            self.t90_start = now if conf >= 90 else None
+            return
+            
+        if conf >= 90:
+            if self.t90_start is None:
+                self.t90_start = now
+            elif now - self.t90_start >= 1:
+                self._finalise(cls)
+        else:
+            self.t90_start = None
+            
+        if conf >= 70:
+            if self.t70_start is None:
+                self.t70_start = now
+            elif now - self.t70_start >= 2:
+                self._finalise(cls)
+        else:
+            self.t70_start = None
+
+    def _finalise(self, cls: str):
+        self.finalised = True
+        self.final_class = cls
+        print(f"✔ Final prediction: {cls}")
+
+    def run(self, display_scale: float = 1.0):
+        # Create and configure window
+        cv2.namedWindow("Poker Card Detection", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Poker Card Detection", 640, 480)
+        cv2.moveWindow("Poker Card Detection", 100, 100)
+        time.sleep(2)  # Give the window system time to initialize
         
-        print(f"Starting real-time detection with camera {camera_id}")
-        print("Press 'q' to quit")
-        
-        while True:
-            # capture a frame from the camera (succes, np.ndarray)
-            success, frame = cap.read() # h x w x c (BGR format)
-            if not success:
-                print("Error: Failed to capture frame")
-                break
-            
-            # get prediction
-            class_name, confidence = self.predict(frame)
-            
-            # Calculate FPS
-            fps = self.update_fps()
-            
-            # Display information on frame
-            info_frame = frame.copy()
-            
-            # Display prediction if confidence is above threshold
-            if confidence >= self.confidence_threshold:
-                cv2.putText(info_frame, f"Card: {class_name}", (10, 30), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-                cv2.putText(info_frame, f"Conf: {confidence:.1f}%", (10, 70), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-            else:
-                cv2.putText(info_frame, "No card detected", (10, 30), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-            
-            # Display FPS
-            cv2.putText(info_frame, f"FPS: {fps:.1f}", (10, 110), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-            
-            # Resize the display window if needed
-            if display_scale != 1.0:
-                width = int(info_frame.shape[1] * display_scale)
-                height = int(info_frame.shape[0] * display_scale)
-                display_frame = cv2.resize(info_frame, (width, height))
-            else:
-                display_frame = info_frame
-            
-            # Show the frame
-            cv2.imshow('Poker Card Detection', display_frame)
-            
-            # Exit on 'q' key press
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        
-        # Release resources
-        cap.release()
-        cv2.destroyAllWindows()
-        print("Detection ended")
+        try:
+            while True:
+                frame = self.picam.capture_array()
+                
+                # Always predict and track stability - don't skip when finalized
+                cls, conf = self._predict(frame)
+                self._track_stability(cls, conf)
+                
+                # For display purposes, if finalized, use the final_class
+                display_cls = self.final_class if self.finalised else cls
+                display_conf = 100.0 if self.finalised else conf
+                
+                fps = self._update_fps()
+                disp = frame.copy()
+
+                # Overlay text
+                if self.finalised:
+                    cv2.putText(disp, f"FINAL: {display_cls}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+                else:
+                    if conf >= self.conf_threshold:
+                        cv2.putText(disp, f"Card: {display_cls}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                        cv2.putText(disp, f"Conf: {display_conf:.1f}%", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    else:
+                        cv2.putText(disp, "No card detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                cv2.putText(disp, f"FPS: {fps:.1f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+
+                if display_scale != 1.0:
+                    disp = cv2.resize(
+                        disp,
+                        (int(disp.shape[1] * display_scale), int(disp.shape[0] * display_scale)),
+                    )
+
+                # Show and handle key
+                cv2.imshow("Poker Card Detection", disp)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.picam.stop()
+            cv2.destroyAllWindows()
+            print("Detection ended")
 
 
-def load_class_names(class_file):
-    """Load class names from a text file."""
-    if not os.path.exists(class_file):
-        raise FileNotFoundError(f"Class names file not found: {class_file}")
-        
-    with open(class_file, 'r') as f:
-        return [line.strip() for line in f.readlines()]
+def load_class_names(path: str):
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+    return [l.strip() for l in open(path) if l.strip()]
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Real-time Poker Card Detector")
-    parser.add_argument('--model', type=str, required=True, help='Path to trained model')
-    parser.add_argument('--classes', type=str, required=True, help='Path to class names file')
-    parser.add_argument('--camera', type=int, default=0, help='Camera ID to use')
-    parser.add_argument('--threshold', type=float, default=0.7, help='Confidence threshold')
-    parser.add_argument('--display_scale', type=float, default=1.0, help='Display window scale factor')
-    parser.add_argument('--device', type=str, default='cpu', help='Device to use (cpu/cuda)')
-
+    parser = argparse.ArgumentParser("Real-time Poker Card Detector (Picamera2)")
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--classes", required=True)
+    parser.add_argument("--threshold", type=float, default=0.7)
+    parser.add_argument("--display_scale", type=float, default=1.0)
+    parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
-    
-    print("Starting Poker Card Detection System")
-    
-    try:
-        # Load class names
-        print(f"Loading class names from {args.classes}")
-        class_names = load_class_names(args.classes)
-        print(f"Loaded {len(class_names)} card classes")
-        
-        # Initialize detector
-        print(f"Loading model from {args.model}")
-        detector = RealtimeCardDetector(
-            model_path=args.model,
-            class_names=class_names,
-            device=args.device,
-            confidence_threshold=args.threshold
-        )
-        
-        # Run detection
-        detector.run(camera_id=args.camera, display_scale=args.display_scale)
-    
-    except Exception as e:
-        print(f"Error: {str(e)}")
+
+    detector = RealtimeCardDetector(
+        model_path=args.model,
+        class_names=load_class_names(args.classes),
+        device=args.device,
+        conf_threshold=args.threshold,
+    )
+    detector.run(display_scale=args.display_scale)
 
 
 if __name__ == "__main__":
