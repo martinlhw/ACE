@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 
 # Run real-time poker card detection
 # This script makes it easy to run the inference code
@@ -8,10 +7,11 @@
 PROJECT_ROOT="$(pwd)"
 MODEL_PATH="${PROJECT_ROOT}/models/best_model.pth"
 CLASS_FILE="${PROJECT_ROOT}/data/class_names.txt"
-CAMERA_ID=0 # default camera
 DEVICE="cpu"
 THRESHOLD=0.7
 DISPLAY_SCALE=1.0
+HOST="localhost"
+PORT=12345
 
 # print banner
 echo "=========================================="
@@ -19,7 +19,7 @@ echo "   Poker Card Real-time Detection System  "
 echo "=========================================="
 echo ""
 
-# Check if Python is available
+# Check dependencies
 if ! command -v python3 &> /dev/null; then
     echo "Python 3 not found. Please install Python 3."
     exit 1
@@ -42,8 +42,8 @@ fi
 echo "Starting detection with:"
 echo "- Model: $MODEL_PATH"
 echo "- Classes: $CLASS_FILE"
-echo "- Camera: $CAMERA_ID"
 echo "- Device: $DEVICE"
+echo "- Socket: $HOST:$PORT"
 echo ""
 
 # Run the detection script
@@ -52,7 +52,9 @@ python3 inference/realtime_detection.py \
     --classes "$CLASS_FILE" \
     --device "$DEVICE" \
     --threshold $THRESHOLD \
-    --display_scale $DISPLAY_SCALE
+    --display_scale $DISPLAY_SCALE \
+    --host "$HOST" \
+    --port $PORT
 
 # Exit message
 echo ""

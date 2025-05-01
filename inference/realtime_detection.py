@@ -3,6 +3,8 @@ import torch
 import time
 import argparse
 import os
+import socket
+import json
 os.environ["QT_QPA_PLATFORM"] = "xcb"
 os.environ["GDK_BACKEND"] = "x11"
 os.environ["OPENCV_VIDEOIO_PRIORITY_BACKEND"] = "gstreamer"
@@ -38,6 +40,8 @@ class RealtimeCardDetector:
         input_size: tuple[int, int] = (224, 224),
         conf_threshold: float = 0.7,
         fps_avg_frames: int = 10,
+        socket_host="localhost",
+        socket_port=12345
     ) -> None:
         self.device = device
         self.class_names = class_names
@@ -64,6 +68,12 @@ class RealtimeCardDetector:
         self.candidate_class: str | None = None
         self.t70_start: float | None = None
         self.t90_start: float | None = None
+        
+        # Socket connection for transmitting results
+        self.socket_host = socket_host
+        self.socket_port = socket_port
+        self.socket = None
+        self.connect_socket()
 
         # Initialize camera
         self.picam = Picamera2()
@@ -74,6 +84,16 @@ class RealtimeCardDetector:
         )
         self.picam.start()
         print("Detector ready – press q in the window to quit.")
+    
+    def connect_socket(self):
+        """Establish socket connection to the game state manager"""
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((self.socket_host, self.socket_port))
+            print(f"Connected to game state manager at {self.socket_host}:{self.socket_port}")
+        except Exception as e:
+            print(f"Failed to connect to game state manager: {e}")
+            self.socket = None
 
     def _preprocess(self, frame):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -100,7 +120,7 @@ class RealtimeCardDetector:
 
     def _track_stability(self, cls: str, conf: float):
         now = time.time()
-        print(cls, self.final_class)
+        
         # Reset finalization if a different card is detected with good confidence
         if self.finalised and cls != self.final_class and conf >= self.conf_threshold:
             print(f"New card detected: {cls}, confidence: {conf:.1f}%")
@@ -114,7 +134,7 @@ class RealtimeCardDetector:
         # If not finalized yet, track stability as before
         if cls != self.candidate_class:
             self.candidate_class = cls
-            self.t70_start = now if conf >= 70 else None
+            self.t80_start = now if conf >= 80 else None
             self.t90_start = now if conf >= 90 else None
             return
             
@@ -126,18 +146,49 @@ class RealtimeCardDetector:
         else:
             self.t90_start = None
             
-        if conf >= 70:
-            if self.t70_start is None:
-                self.t70_start = now
-            elif now - self.t70_start >= 2:
+        if conf >= 80:
+            if self.t80_start is None:
+                self.t80_start = now
+            elif now - self.t80_start >= 2:
                 self._finalise(cls)
         else:
-            self.t70_start = None
+            self.t80_start = None
 
     def _finalise(self, cls: str):
         self.finalised = True
         self.final_class = cls
         print(f"✔ Final prediction: {cls}")
+        
+        # Send the detection to the game state manager
+        if self.socket:
+            try:
+                # Simply send the card class as a string
+                self.socket.sendall(cls.encode('utf-8'))
+                print(f"Sent detection '{cls}' to game state manager")
+            except Exception as e:
+                print(f"Failed to send detection: {e}")
+                # Try to reconnect on failure
+                self.connect_socket()
+        
+    def _send_detection(self, card_class: str):
+        """Send detection result to the game state manager"""
+        if self.socket:
+            try:
+                # Create a message with the card data
+                message = {
+                    "type": "card_detection",
+                    "card": card_class,
+                    "timestamp": time.time()
+                }
+                
+                # Convert to JSON and send
+                json_message = json.dumps(message) + "\n"  # Add newline as message delimiter
+                self.socket.sendall(json_message.encode('utf-8'))
+                print(f"Sent detection '{card_class}' to game state manager")
+            except Exception as e:
+                print(f"Failed to send detection: {e}")
+                # Try to reconnect on failure
+                self.connect_socket()
 
     def run(self, display_scale: float = 1.0):
         # Create and configure window
@@ -185,6 +236,8 @@ class RealtimeCardDetector:
         except KeyboardInterrupt:
             pass
         finally:
+            if self.socket:
+                self.socket.close()
             self.picam.stop()
             cv2.destroyAllWindows()
             print("Detection ended")
@@ -200,9 +253,11 @@ def main():
     parser = argparse.ArgumentParser("Real-time Poker Card Detector (Picamera2)")
     parser.add_argument("--model", required=True)
     parser.add_argument("--classes", required=True)
-    parser.add_argument("--threshold", type=float, default=0.7)
+    parser.add_argument("--threshold", type=float, default=0.8)
     parser.add_argument("--display_scale", type=float, default=1.0)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--host", default="localhost")
+    parser.add_argument("--port", type=int, default=12345)
     args = parser.parse_args()
 
     detector = RealtimeCardDetector(
@@ -210,6 +265,8 @@ def main():
         class_names=load_class_names(args.classes),
         device=args.device,
         conf_threshold=args.threshold,
+        socket_host=args.host,
+        socket_port=args.port
     )
     detector.run(display_scale=args.display_scale)
 
